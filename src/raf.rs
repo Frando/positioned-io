@@ -1,4 +1,4 @@
-#[cfg(windows)]
+#[cfg(not(unix))]
 use std::io::{Seek, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
@@ -6,7 +6,10 @@ use std::os::unix::fs::FileExt;
 use std::os::windows::fs::FileExt;
 use std::{fs::File, io, io::Write, path::Path};
 
-use super::{ReadAt, Size, WriteAt};
+#[cfg(any(unix, windows))]
+use super::ReadAt;
+
+use super::{Size, WriteAt};
 
 /// A wrapper for `File` that provides optimized random access through
 /// `ReadAt` and `WriteAt`.
@@ -136,13 +139,15 @@ impl WriteAt for &RandomAccessFile {
     }
 }
 
+#[cfg(all(not(windows), not(unix)))]
 impl WriteAt for RandomAccessFile {
     fn write_at(&mut self, pos: u64, buf: &[u8]) -> io::Result<usize> {
-        WriteAt::write_at(&mut &*self, pos, buf)
+        self.file.seek(SeekFrom::Start(pos))?;
+        self.file.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        WriteAt::flush(&mut &*self)
+        self.file.flush()
     }
 }
 
